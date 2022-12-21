@@ -346,5 +346,9 @@ func (c *Caller) call(action string, p Getter) global.MSG {
 		p1 := p.Get("file").String()
 		p2 := p.Get("name").String()
 		return c.bot.CQUploadPrivateFile(p0, p1, p2)
+	case "send_like":
+		p0 := p.Get("user_id").Int()
+		p1 := p.Get("times").Int()
+		return c.bot.SendLike(p0, int32(p1))
 	}
 }

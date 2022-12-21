@@ -2115,3 +2115,8 @@ func limitedString(str string) string {
 	}
 	return string(limited[:])
 }
+
+func (bot *CQBot) SendLike(userID int64, times int32) global.MSG {
+	bot.Client.SendLike(userID, times)
+	return OK(nil)
+}

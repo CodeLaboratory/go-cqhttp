@@ -66,3 +66,5 @@ require (
 )
 
 replace github.com/remyoudompheng/bigfft => github.com/fumiama/bigfft v0.0.0-20211011143303-6e0bfa3c836b
+
+replace github.com/Mrs4s/MiraiGo => github.com/CodeLaboratory/MiraiGo v0.0.1
