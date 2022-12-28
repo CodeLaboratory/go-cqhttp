@@ -29,7 +29,7 @@ func readLine() (str string) {
 }
 
 func lastVersion() (string, error) {
-	r, err := download.Request{URL: "https://api.github.com/repos/Mrs4s/go-cqhttp/releases/latest"}.JSON()
+	r, err := download.Request{URL: "https://api.github.com/repos/CodeLaboratory/go-cqhttp/releases/latest"}.JSON()
 	if err != nil {
 		return "", err
 	}
@@ -49,7 +49,7 @@ func CheckUpdate() {
 		return
 	}
 	if global.VersionNameCompare(base.Version, latest) {
-		logrus.Infof("当前有更新的 go-cqhttp 可供更新, 请前往 https://github.com/Mrs4s/go-cqhttp/releases 下载.")
+		logrus.Infof("当前有更新的 go-cqhttp 可供更新, 请前往 https://github.com/CodeLaboratory/go-cqhttp/releases 下载.")
 		logrus.Infof("当前版本: %v 最新版本: %v", base.Version, latest)
 		return
 	}
