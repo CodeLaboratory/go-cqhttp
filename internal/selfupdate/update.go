@@ -69,7 +69,7 @@ func binaryName() string {
 }
 
 func checksum(github, version string) []byte {
-	sumURL := fmt.Sprintf("%v/Mrs4s/go-cqhttp/releases/download/%v/go-cqhttp_checksums.txt", github, version)
+	sumURL := fmt.Sprintf("%v/CodeLaboratory/go-cqhttp/releases/download/%v/go-cqhttp_checksums.txt", github, version)
 	sum, err := download.Request{URL: sumURL}.Bytes()
 	if err != nil {
 		return nil
@@ -108,7 +108,7 @@ func SelfUpdate(github string) {
 		logrus.Warnf("获取最新版本失败: %v", err)
 		wait()
 	}
-	url := fmt.Sprintf("%v/Mrs4s/go-cqhttp/releases/download/%v/%v", github, latest, binaryName())
+	url := fmt.Sprintf("%v/CodeLaboratory/go-cqhttp/releases/download/%v/%v", github, latest, binaryName())
 	if base.Version == latest {
 		logrus.Info("当前版本已经是最新版本!")
 		wait()
