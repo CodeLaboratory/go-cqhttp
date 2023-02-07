@@ -282,6 +282,18 @@ func toElements(e []message.IMessageElement, source message.Source) (r []cqcode.
 					{K: "type", V: "sticker"},
 				},
 			}
+		case *LocalImageElement:
+			data := pairs{
+				{K: "file", V: o.File},
+				{K: "url", V: o.URL},
+			}
+			if o.Flash {
+				data = append(data, pair{K: "type", V: "flash"})
+			}
+			m = cqcode.Element{
+				Type: "image",
+				Data: data,
+			}
 		default:
 			continue
 		}
@@ -807,7 +819,7 @@ func (bot *CQBot) ConvertContentMessage(content []global.MSG, sourceType message
 // 返回 interface{} 存在三种类型
 //
 // message.IMessageElement []message.IMessageElement nil
-func (bot *CQBot) ToElement(t string, d map[string]string, sourceType message.SourceType) (m interface{}, err error) {
+func (bot *CQBot) ToElement(t string, d map[string]string, sourceType message.SourceType) (m any, err error) {
 	switch t {
 	case "text":
 		if base.SplitURL {
