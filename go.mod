@@ -5,7 +5,7 @@ go 1.20
 require (
 	github.com/FloatTech/sqlite v1.5.7
 	github.com/Microsoft/go-winio v0.6.0
-	github.com/Mrs4s/MiraiGo v0.0.0-20230206122951-91f9576e4815
+	github.com/Mrs4s/MiraiGo v0.0.0-20230220070519-af032dec9677
 	github.com/RomiChan/syncx v0.0.0-20221202055724-5f842c53020e
 	github.com/RomiChan/websocket v1.4.3-0.20220123145318-307a86b127bc
 	github.com/fumiama/go-base16384 v1.6.1
@@ -44,7 +44,7 @@ require (
 	github.com/montanaflynn/stats v0.0.0-20171201202039-1bf9dbcd8cbe // indirect
 	github.com/pierrec/lz4/v4 v4.1.15 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
-	github.com/remyoudompheng/bigfft v0.0.0-20200410134404-eec4a21b6bb0 // indirect
+	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.0 // indirect
 	github.com/xdg-go/pbkdf2 v1.0.0 // indirect
@@ -69,4 +69,4 @@ require (
 
 replace github.com/remyoudompheng/bigfft => github.com/fumiama/bigfft v0.0.0-20211011143303-6e0bfa3c836b
 
-replace github.com/Mrs4s/MiraiGo => github.com/CodeLaboratory/MiraiGo v0.0.0-20230207025336-cd35965f680c
+replace github.com/Mrs4s/MiraiGo => github.com/CodeLaboratory/MiraiGo v0.0.0-20230224085931-2721a7575c02

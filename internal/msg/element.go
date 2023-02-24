@@ -1,4 +1,5 @@
-package cqcode
+// Package msg 提供了go-cqhttp消息中间表示，CQ码处理等等
+package msg
 
 import (
 	"bytes"
@@ -8,16 +9,105 @@ import (
 	"github.com/Mrs4s/MiraiGo/binary"
 )
 
+// @@@ CQ码转义处理 @@@
+
+// EscapeText 将字符串raw中部分字符转义
+//
+//   - & -> &amp;
+//   - [ -> &#91;
+//   - ] -> &#93;
+func EscapeText(s string) string {
+	count := strings.Count(s, "&")
+	count += strings.Count(s, "[")
+	count += strings.Count(s, "]")
+	if count == 0 {
+		return s
+	}
+
+	// Apply replacements to buffer.
+	var b strings.Builder
+	b.Grow(len(s) + count*4)
+	start := 0
+	for i := 0; i < count; i++ {
+		j := start
+		for index, r := range s[start:] {
+			if r == '&' || r == '[' || r == ']' {
+				j += index
+				break
+			}
+		}
+		b.WriteString(s[start:j])
+		switch s[j] {
+		case '&':
+			b.WriteString("&amp;")
+		case '[':
+			b.WriteString("&#91;")
+		case ']':
+			b.WriteString("&#93;")
+		}
+		start = j + 1
+	}
+	b.WriteString(s[start:])
+	return b.String()
+}
+
+// EscapeValue 将字符串value中部分字符转义
+//
+//   - , -> &#44;
+//   - & -> &amp;
+//   - [ -> &#91;
+//   - ] -> &#93;
+func EscapeValue(value string) string {
+	ret := EscapeText(value)
+	return strings.ReplaceAll(ret, ",", "&#44;")
+}
+
+// UnescapeText 将字符串content中部分字符反转义
+//
+//   - &amp; -> &
+//   - &#91; -> [
+//   - &#93; -> ]
+func UnescapeText(content string) string {
+	ret := content
+	ret = strings.ReplaceAll(ret, "&#91;", "[")
+	ret = strings.ReplaceAll(ret, "&#93;", "]")
+	ret = strings.ReplaceAll(ret, "&amp;", "&")
+	return ret
+}
+
+// UnescapeValue 将字符串content中部分字符反转义
+//
+//   - &#44; -> ,
+//   - &amp; -> &
+//   - &#91; -> [
+//   - &#93; -> ]
+func UnescapeValue(content string) string {
+	ret := strings.ReplaceAll(content, "&#44;", ",")
+	return UnescapeText(ret)
+}
+
+// @@@ 消息中间表示 @@@
+
+// Pair key value pair
+type Pair struct {
+	K string
+	V string
+}
+
 // Element single message
 type Element struct {
 	Type string
 	Data []Pair
 }
 
-// Pair key value pair
-type Pair struct {
-	K string
-	V string
+// Get 获取指定值
+func (e *Element) Get(k string) string {
+	for _, datum := range e.Data {
+		if datum.K == k {
+			return datum.V
+		}
+	}
+	return ""
 }
 
 // CQCode convert element to cqcode
@@ -60,7 +150,7 @@ func (e *Element) MarshalJSON() ([]byte, error) {
 			buf.WriteByte('"')
 			buf.WriteString(data.K)
 			buf.WriteString(`":`)
-			writeQuote(buf, data.V)
+			buf.WriteString(QuoteJSON(data.V))
 		}
 		buf.WriteString(`}}`)
 	}), nil
@@ -68,9 +158,10 @@ func (e *Element) MarshalJSON() ([]byte, error) {
 
 const hex = "0123456789abcdef"
 
-func writeQuote(b *bytes.Buffer, s string) {
+// QuoteJSON 按JSON转义为字符加上双引号
+func QuoteJSON(s string) string {
 	i, j := 0, 0
-
+	var b strings.Builder
 	b.WriteByte('"')
 	for j < len(s) {
 		c := s[j]
@@ -151,4 +242,5 @@ func writeQuote(b *bytes.Buffer, s string) {
 
 	b.WriteString(s[i:])
 	b.WriteByte('"')
+	return b.String()
 }
