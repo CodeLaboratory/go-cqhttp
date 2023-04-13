@@ -69,4 +69,4 @@ require (
 
 replace github.com/remyoudompheng/bigfft => github.com/fumiama/bigfft v0.0.0-20211011143303-6e0bfa3c836b
 
-replace github.com/Mrs4s/MiraiGo => github.com/CodeLaboratory/MiraiGo v0.0.0-20230403013116-9de513226251
+replace github.com/Mrs4s/MiraiGo => github.com/CodeLaboratory/MiraiGo v0.0.0-20230413080504-8adea49c27b5
