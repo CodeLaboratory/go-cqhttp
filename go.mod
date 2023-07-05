@@ -5,7 +5,7 @@ go 1.20
 require (
 	github.com/FloatTech/sqlite v1.5.7
 	github.com/Microsoft/go-winio v0.6.0
-	github.com/Mrs4s/MiraiGo v0.0.0-20230401072048-f8d9841755b5
+	github.com/Mrs4s/MiraiGo v0.0.0-20230627090859-19e3d172596e
 	github.com/RomiChan/syncx v0.0.0-20221202055724-5f842c53020e
 	github.com/RomiChan/websocket v1.4.3-0.20220123145318-307a86b127bc
 	github.com/fumiama/go-base16384 v1.6.1
@@ -69,4 +69,4 @@ require (
 
 replace github.com/remyoudompheng/bigfft => github.com/fumiama/bigfft v0.0.0-20211011143303-6e0bfa3c836b
 
-replace github.com/Mrs4s/MiraiGo => github.com/CodeLaboratory/MiraiGo v0.0.0-20230413080504-8adea49c27b5
+replace github.com/Mrs4s/MiraiGo => github.com/CodeLaboratory/MiraiGo v0.0.0-20230705011024-9614424df4d3
