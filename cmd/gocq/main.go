@@ -163,13 +163,27 @@ func LoginInteract() {
 			log.Fatalf("加载设备信息失败: %v", err)
 		}
 	}
-
-	if base.SignServer != "-" && base.SignServer != "" {
-		log.Infof("使用服务器 %s 进行数据包签名", base.SignServer)
+	signServer, err := getAvaliableSignServer() // 获取可用签名服务器
+	if err != nil {
+		log.Warn(err)
+	}
+	if signServer != nil && len(signServer.URL) > 1 {
+		log.Infof("使用签名服务器：%v", signServer.URL)
+		go signStartRefreshToken(base.Account.RefreshInterval) // 定时刷新 token
 		wrapper.DandelionEnergy = energy
 		wrapper.FekitGetSign = sign
+		if !base.IsBelow110 {
+			if !base.Account.AutoRegister {
+				log.Warn("自动注册实例已关闭，请配置 sign-server 端自动注册实例以保持正常签名")
+			}
+			if !base.Account.AutoRefreshToken {
+				log.Info("自动刷新 token 已关闭，token 过期后获取签名时将不会立即尝试刷新获取新 token")
+			}
+		} else {
+			log.Warn("签名服务器版本 <= 1.1.0 ，无法使用刷新 token 等操作，建议使用 1.1.6 版本及以上签名服务器")
+		}
 	} else {
-		log.Warnf("警告: 未配置签名服务器, 这可能会导致登录 45 错误码或发送消息被风控")
+		log.Warnf("警告: 未配置签名服务器或签名服务器不可用, 这可能会导致登录 45 错误码或发送消息被风控")
 	}
 
 	if base.Account.Encrypt {
@@ -287,6 +301,7 @@ func LoginInteract() {
 		cli.Uin = base.Account.Uin
 		cli.PasswordMd5 = base.PasswordHash
 	}
+	download.SetTimeout(time.Duration(base.HTTPTimeout) * time.Second)
 	if !base.FastStart {
 		log.Infof("正在检查协议更新...")
 		currentVersionName := device.Protocol.Version().SortVersionName
@@ -373,7 +388,6 @@ func LoginInteract() {
 	})
 	saveToken()
 	cli.AllowSlider = true
-	download.SetTimeout(time.Duration(base.HTTPTimeout) * time.Second) // 在登录完成后设置, 防止在堵塞协议更新
 	log.Infof("登录成功 欢迎使用: %v", cli.Nickname)
 	log.Info("开始加载好友列表...")
 	global.Check(cli.ReloadFriendList(), true)

@@ -51,7 +51,7 @@ func replyID(r *message.ReplyElement, source message.Source) int32 {
 	}
 	// 私聊时，部分（不确定）的账号会在 ReplyElement 中带有 GroupID 字段。
 	// 这里需要判断是由于 “直接回复” 功能，GroupID 为触发直接回复的来源那个群。
-	if source.SourceType == message.SourcePrivate && (r.Sender == source.PrimaryID || r.GroupID == source.PrimaryID) {
+	if source.SourceType == message.SourcePrivate && (r.Sender == source.PrimaryID || r.GroupID == source.PrimaryID || r.GroupID == 0) {
 		// 私聊似乎腾讯服务器有bug?
 		seq = int32(uint16(seq))
 		id = r.Sender
@@ -243,6 +243,16 @@ func toElements(e []message.IMessageElement, source message.Source) (r []msg.Ele
 					{K: "type", V: "sticker"},
 				},
 			}
+		case *message.GroupFileElement:
+			m = msg.Element{
+				Type: "file",
+				Data: pairs{
+					{K: "path", V: o.Path},
+					{K: "name", V: o.Name},
+					{K: "size", V: strconv.FormatInt(o.Size, 10)},
+					{K: "busid", V: strconv.FormatInt(int64(o.Busid), 10)},
+				},
+			}
 		case *msg.LocalImage:
 			data := pairs{
 				{K: "file", V: o.File},
@@ -266,10 +276,15 @@ func toElements(e []message.IMessageElement, source message.Source) (r []msg.Ele
 // ToMessageContent 将消息转换成 Content. 忽略 Reply
 // 不同于 onebot 的 Array Message, 此函数转换出来的 Content 的 data 段为实际类型
 // 方便数据库查询
-func ToMessageContent(e []message.IMessageElement) (r []global.MSG) {
+func ToMessageContent(e []message.IMessageElement, source message.Source) (r []global.MSG) {
 	for _, elem := range e {
 		var m global.MSG
 		switch o := elem.(type) {
+		case *message.ReplyElement:
+			m = global.MSG{
+				"type": "reply",
+				"data": global.MSG{"id": replyID(o, source)},
+			}
 		case *message.TextElement:
 			m = global.MSG{
 				"type": "text",
@@ -373,6 +388,11 @@ func ToMessageContent(e []message.IMessageElement) (r []global.MSG) {
 				"type": "face",
 				"data": global.MSG{"id": o.ID, "type": "sticker"},
 			}
+		case *message.GroupFileElement:
+			m = global.MSG{
+				"type": "file",
+				"data": global.MSG{"path": o.Path, "name": o.Name, "size": strconv.FormatInt(o.Size, 10), "busid": strconv.FormatInt(int64(o.Busid), 10)},
+			}
 		default:
 			continue
 		}
@@ -384,7 +404,7 @@ func ToMessageContent(e []message.IMessageElement) (r []global.MSG) {
 // ConvertStringMessage 将消息字符串转为消息元素数组
 func (bot *CQBot) ConvertStringMessage(spec *onebot.Spec, raw string, sourceType message.SourceType) (r []message.IMessageElement) {
 	elems := msg.ParseString(raw)
-	return bot.ConvertElements(spec, elems, sourceType)
+	return bot.ConvertElements(spec, elems, sourceType, true)
 }
 
 // ConvertObjectMessage 将消息JSON对象转为消息元素数组
@@ -393,11 +413,11 @@ func (bot *CQBot) ConvertObjectMessage(spec *onebot.Spec, m gjson.Result, source
 		return bot.ConvertStringMessage(spec, m.Str, sourceType)
 	}
 	elems := msg.ParseObject(m)
-	return bot.ConvertElements(spec, elems, sourceType)
+	return bot.ConvertElements(spec, elems, sourceType, false)
 }
 
 // ConvertContentMessage 将数据库用的 content 转换为消息元素数组
-func (bot *CQBot) ConvertContentMessage(content []global.MSG, sourceType message.SourceType) (r []message.IMessageElement) {
+func (bot *CQBot) ConvertContentMessage(content []global.MSG, sourceType message.SourceType, noReply bool) (r []message.IMessageElement) {
 	elems := make([]msg.Element, len(content))
 	for i, v := range content {
 		elem := msg.Element{Type: v["type"].(string)}
@@ -407,13 +427,16 @@ func (bot *CQBot) ConvertContentMessage(content []global.MSG, sourceType message
 		}
 		elems[i] = elem
 	}
-	return bot.ConvertElements(onebot.V11, elems, sourceType)
+	return bot.ConvertElements(onebot.V11, elems, sourceType, noReply)
 }
 
 // ConvertElements 将解码后的消息数组转换为MiraiGo表示
-func (bot *CQBot) ConvertElements(spec *onebot.Spec, elems []msg.Element, sourceType message.SourceType) (r []message.IMessageElement) {
+func (bot *CQBot) ConvertElements(spec *onebot.Spec, elems []msg.Element, sourceType message.SourceType, noReply bool) (r []message.IMessageElement) {
 	var replyCount int
 	for _, elem := range elems {
+		if noReply && elem.Type == "reply" {
+			continue
+		}
 		me, err := bot.ConvertElement(spec, elem, sourceType)
 		if err != nil {
 			// TODO: don't use cqcode format
@@ -497,7 +520,7 @@ func (bot *CQBot) reply(spec *onebot.Spec, elem msg.Element, sourceType message.
 			ReplySeq: org.GetAttribute().MessageSeq,
 			Sender:   org.GetAttribute().SenderUin,
 			Time:     int32(org.GetAttribute().Timestamp),
-			Elements: bot.ConvertContentMessage(org.GetContent(), sourceType),
+			Elements: bot.ConvertContentMessage(org.GetContent(), sourceType, true),
 		}
 
 	default:
@@ -841,6 +864,17 @@ func (bot *CQBot) ConvertElement(spec *onebot.Spec, elem msg.Element, sourceType
 			v.File = cacheFile
 		}
 		return v, nil
+	case "file":
+		path := elem.Get("path")
+		name := elem.Get("name")
+		size, _ := strconv.ParseInt(elem.Get("size"), 10, 64)
+		busid, _ := strconv.ParseInt(elem.Get("busid"), 10, 64)
+		return &message.GroupFileElement{
+			Name:  name,
+			Size:  size,
+			Path:  path,
+			Busid: int32(busid),
+		}, nil
 	default:
 		return nil, errors.New("unsupported message type: " + elem.Type)
 	}

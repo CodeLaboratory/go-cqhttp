@@ -15,26 +15,15 @@ import (
 	"sync"
 	"time"
 
+	"github.com/RomiChan/syncx"
 	"github.com/pkg/errors"
 	"github.com/tidwall/gjson"
 
 	"github.com/Mrs4s/go-cqhttp/internal/base"
 )
 
-var client = &http.Client{
-	Transport: &http.Transport{
-		Proxy: func(request *http.Request) (*url.URL, error) {
-			if base.Proxy == "" {
-				return http.ProxyFromEnvironment(request)
-			}
-			return url.Parse(base.Proxy)
-		},
-		// Disable http2
-		TLSNextProto:        map[string]func(authority string, c *tls.Conn) http.RoundTripper{},
-		MaxIdleConnsPerHost: 999,
-	},
-	Timeout: time.Second * 5,
-}
+var client = newClient(time.Second * 15)
+var clients syncx.Map[time.Duration, *http.Client]
 
 var clienth2 = &http.Client{
 	Transport: &http.Transport{
@@ -47,7 +36,24 @@ var clienth2 = &http.Client{
 		ForceAttemptHTTP2:   true,
 		MaxIdleConnsPerHost: 999,
 	},
-	Timeout: time.Second * 5,
+	Timeout: time.Second * 15,
+}
+
+func newClient(t time.Duration) *http.Client {
+	return &http.Client{
+		Transport: &http.Transport{
+			Proxy: func(request *http.Request) (*url.URL, error) {
+				if base.Proxy == "" {
+					return http.ProxyFromEnvironment(request)
+				}
+				return url.Parse(base.Proxy)
+			},
+			// Disable http2
+			TLSNextProto:        map[string]func(authority string, c *tls.Conn) http.RoundTripper{},
+			MaxIdleConnsPerHost: 999,
+		},
+		Timeout: t,
+	}
 }
 
 // ErrOverSize 响应主体过大时返回此错误
@@ -55,6 +61,18 @@ var ErrOverSize = errors.New("oversize")
 
 // UserAgent HTTP请求时使用的UA
 const UserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88 Safari/537.36 Edg/87.0.664.66"
+
+// WithTimeout get a download instance with timeout t
+func (r Request) WithTimeout(t time.Duration) *Request {
+	if c, ok := clients.Load(t); ok {
+		r.custcli = c
+	} else {
+		c := newClient(t)
+		clients.Store(t, c)
+		r.custcli = c
+	}
+	return &r
+}
 
 // SetTimeout set internal/download client timeout
 func SetTimeout(t time.Duration) {
@@ -67,14 +85,18 @@ func SetTimeout(t time.Duration) {
 
 // Request is a file download request
 type Request struct {
-	Method string
-	URL    string
-	Header map[string]string
-	Limit  int64
-	Body   io.Reader
+	Method  string
+	URL     string
+	Header  map[string]string
+	Limit   int64
+	Body    io.Reader
+	custcli *http.Client
 }
 
 func (r Request) client() *http.Client {
+	if r.custcli != nil {
+		return r.custcli
+	}
 	if strings.Contains(r.URL, "go-cqhttp.org") {
 		return clienth2
 	}
@@ -123,6 +145,7 @@ func (r Request) Bytes() ([]byte, error) {
 		return nil, err
 	}
 	defer rd.Close()
+	defer r.client().CloseIdleConnections()
 	return io.ReadAll(rd)
 }
 
@@ -133,6 +156,7 @@ func (r Request) JSON() (gjson.Result, error) {
 		return gjson.Result{}, err
 	}
 	defer rd.Close()
+	defer r.client().CloseIdleConnections()
 
 	var sb strings.Builder
 	_, err = io.Copy(&sb, rd)
@@ -160,6 +184,7 @@ func (r Request) WriteToFile(path string) error {
 		return err
 	}
 	defer rd.Close()
+	defer r.client().CloseIdleConnections()
 	return writeToFile(rd, path)
 }
 
@@ -169,6 +194,7 @@ func (r Request) WriteToFileMultiThreading(path string, thread int) error {
 		return r.WriteToFile(path)
 	}
 
+	defer r.client().CloseIdleConnections()
 	limit := r.Limit
 	type BlockMetaData struct {
 		BeginOffset    int64

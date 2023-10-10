@@ -3,22 +3,18 @@ package gocq
 import (
 	"bufio"
 	"bytes"
-	"encoding/hex"
 	"fmt"
 	"image"
 	"image/png"
-	"net/http"
 	"os"
 	"strings"
 	"time"
 
 	"github.com/Mrs4s/MiraiGo/client"
 	"github.com/Mrs4s/MiraiGo/utils"
-	"github.com/Mrs4s/go-cqhttp/internal/base"
 	"github.com/mattn/go-colorable"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
-	"github.com/tidwall/gjson"
 	"gopkg.ilharper.com/x/isatty"
 
 	"github.com/Mrs4s/go-cqhttp/global"
@@ -263,50 +259,4 @@ func fetchCaptcha(id string) string {
 		return g.Get("ticket").String()
 	}
 	return ""
-}
-
-func energy(uin uint64, id string, appVersion string, salt []byte) ([]byte, error) {
-	signServer := base.SignServer
-	if !strings.HasSuffix(signServer, "/") {
-		signServer += "/"
-	}
-	response, err := download.Request{
-		Method: http.MethodGet,
-		URL:    signServer + "custom_energy" + fmt.Sprintf("?data=%v&salt=%v", id, hex.EncodeToString(salt)),
-	}.Bytes()
-	if err != nil {
-		log.Warnf("获取T544 sign时出现错误: %v server: %v", err, signServer)
-		return nil, err
-	}
-	data, err := hex.DecodeString(gjson.GetBytes(response, "data").String())
-	if err != nil {
-		log.Warnf("获取T544 sign时出现错误: %v", err)
-		return nil, err
-	}
-	if len(data) == 0 {
-		log.Warnf("获取T544 sign时出现错误: %v", "data is empty")
-		return nil, errors.New("data is empty")
-	}
-	return data, nil
-}
-
-func sign(seq uint64, uin string, cmd string, qua string, buff []byte) (sign []byte, extra []byte, token []byte, err error) {
-	signServer := base.SignServer
-	if !strings.HasSuffix(signServer, "/") {
-		signServer += "/"
-	}
-	response, err := download.Request{
-		Method: http.MethodPost,
-		URL:    signServer + "sign",
-		Header: map[string]string{"Content-Type": "application/x-www-form-urlencoded"},
-		Body:   bytes.NewReader([]byte(fmt.Sprintf("uin=%v&qua=%s&cmd=%s&seq=%v&buffer=%v", uin, qua, cmd, seq, hex.EncodeToString(buff)))),
-	}.Bytes()
-	if err != nil {
-		log.Warnf("获取sso sign时出现错误: %v server: %v", err, signServer)
-		return nil, nil, nil, err
-	}
-	sign, _ = hex.DecodeString(gjson.GetBytes(response, "data.sign").String())
-	extra, _ = hex.DecodeString(gjson.GetBytes(response, "data.extra").String())
-	token, _ = hex.DecodeString(gjson.GetBytes(response, "data.token").String())
-	return sign, extra, token, nil
 }
